@@ -131,31 +131,13 @@ void gameHeaderInformations() {
 
 // draw 
 void draw_data(int x, int y) {
-    LCD_CMD(lcd_set_function, lcd_instr_basic | lcd_addr_horizontal);
-    LCD_CMD(lcd_set_x_addr, x);
-    LCD_CMD(lcd_set_y_addr, y/8);
-
     for (int i = 0; i < 8; i++) {
-        unit8_t reg = (1 << directedJerry[i]);
-        for (int j = 0; j < 8: j++) {
-            unit8_t mask = (1 << j);
-            if (((reg & mask) >> j) == 1) {
-                draw_pixel
+        for (int j = 0; j < 8; j++) {
+            if (BIT_VALUE(jerryDirected[j], i) == 1) {
+                draw_pixel(x + j,y +i, FG_COLOUR);
             }
         }
     }
-
-    // for (int i = 0; i < 8; i++) {
-    //     //lcd_write(LCD_D, jerryDirected[i]);
-
-    //     //LCD_DATA(jerryDirected[i]);
-
-    //     //LCD_DATA(screen_buffer[bank * LCD_X + col]);
-
-    //     // uint8_t mask = (1 << jerryDirected[i]);
-    //     // LCD_DATA(screen_buffer[(y/8) * LCD_X + x] ^ mask);
-        
-    // }
 }
 
 
