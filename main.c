@@ -18,50 +18,24 @@
 //****************************************************//
 // Tom & Jerry shapes                                 //
 //****************************************************//
-// uint8_t tom[8] = {
-//     0b11111111,
-//     0b11111111,
-//     0b00011000,
-//     0b00011000,
-//     0b00011000,
-//     0b00011000,
-//     0b00011000,
-//     0b00011000,
-// };
 
-// uint8_t jerry[8] = {
-//     0b00001111,
-//     0b00000110,
-//     0b00000110,
-//     0b00000110,
-//     0b00000110,
-//     0b11100110,
-//     0b11000110,
-//     0b01111000,
-// };
-uint8_t tom[8] = {
-    0b11111110,
-    0b00010000,
-    0b00010000,
-    0b00010000,
-    0b00010000,
-    0b00010000,
-    0b00010000,
-    0b00010000,
+uint8_t tom[5] = {
+    0b11111,
+    0b00100,
+    0b00100,
+    0b00100,
+    0b00100
 };
 
-uint8_t jerry[8] = {
-    0b00011111,
-    0b00000100,
-    0b00000100,
-    0b00000100,
-    0b00000100,
-    0b11100100,
-    0b01000100,
-    0b01111000,
+uint8_t jerry[5] = {
+    0b00111,
+    0b00010,
+    0b00010,
+    0b11010,
+    0b01100
 };
-uint8_t jerryDirected[8];
-uint8_t tomDirected[8];
+uint8_t jerryDirected[5];
+uint8_t tomDirected[5];
 
 int jerryX = 0;
 int jerryY = 9;
@@ -101,14 +75,14 @@ int numOfWalls = 4;
 
 void setup_draw(void) {
     // Visit each column of output bitmap
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 5; i++) {
         // Visit each row of output bitmap
-        for (int j = 0; j < 8; j++) {
+        for (int j = 0; j < 5; j++) {
             // Kind of like: cactus_direct[i][j] = cactus_original[j][7-i].
             // Flip about the major diagonal.
-            uint8_t jerry_bit_val = BIT_VALUE(jerry[j], (7 - i));
+            uint8_t jerry_bit_val = BIT_VALUE(jerry[j], (4 - i));
             WRITE_BIT(jerryDirected[i], j, jerry_bit_val);
-            uint8_t tom_bit_val = BIT_VALUE(tom[j], (7 - i));
+            uint8_t tom_bit_val = BIT_VALUE(tom[j], (4 - i));
             WRITE_BIT(tomDirected[i], j, tom_bit_val);
         }
     }
@@ -183,8 +157,8 @@ void gameHeaderInformations() {
 
 // draw 
 void draw_data(int x, int y, uint8_t *shape) {
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
             if (BIT_VALUE(shape[j], i) == 1) {
                 draw_pixel(x + j,y +i, FG_COLOUR);
             }
@@ -198,15 +172,24 @@ void drawWalls() {
     }
 }
 
+// void moveTom() {
+//     int tempX = rand() % 84;
+//     int tempY = (rand() % 38) + 9; 
+// }
+
 void process_helper_drawing() {
     clear_screen();
     drawWalls();
     draw_data(jerryX, jerryY, jerryDirected);
     draw_data(tomX, tomY, tomDirected);
+    //moveTom();
     gameHeaderInformations();
     show_screen();
 }
 
+//****************************************************//
+// Starter functions                                  //
+//****************************************************//
 double CalcDistanceBetween2Points(int x1, int y1, int x2, int y2) {
     return SQRT((x1-x2), (y1-y2));
 }
@@ -220,104 +203,100 @@ double PointLinesOnLine(int x, int y, int x1, int y1, int x2, int y2, double all
 }
 
 
-bool tomCollisionDetection() {
-    //double IsCol = PointLinesOnLine (xc, yc, x1+dx1, y1+dy1, x2+dx1, y2+dy1, 10e-5);
-    for (int i = 0; i < numOfWalls; i++) {
-        for (int i = 0; i < 8; i++) {
-            // Visit each row of output bitmap
-            for (int j = 0; j < 8; j++) {
-                // Flip about the major diagonal.
-                uint8_t bit_val = BIT_VALUE(tom[j], (7 - i));
-                if (bit_val == 1) {
-                    double IsCol = PointLinesOnLine (tomX + j, tomY + i, walls[i][0],walls[i][1],walls[i][2],walls[i][3], 10e-5);
-                    if (IsCol == 1) {
-                        return true;
-                    }
-                }
-            }
-        }  
-    }
-    return false;
-}
-
-bool jerryCollisionDetection() {
-    //double IsCol = PointLinesOnLine (xc, yc, x1+dx1, y1+dy1, x2+dx1, y2+dy1, 10e-5);
+bool jerryCollisionDetection(int direction) { 
+    // direction => left == 0, right == 1, up == 2, down == 3
     for (int k = 0; k < numOfWalls; k++) {
-        for (int i = 0; i < 8; i++) {
-            // Visit each row of output bitmap
-            for (int j = 0; j < 8; j++) {
-                // Flip about the major diagonal.
-                uint8_t bit_val = BIT_VALUE(jerry[j], (7 - i));
-                if (bit_val == 1) {
-                    double IsCol = PointLinesOnLine(jerryX + j, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5);
-                    // // test 
-                    // char output[50];
-                    // snprintf(output, 50, "%f", IsCol);
-                    // draw_string(50,10,output, FG_COLOUR);
-                    if (IsCol == 1) {
-                        return true;
-                    }
+        if (direction == 0) { // left
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(jerryX, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
                 }
             }
-        }  
+        }
+        if (direction == 1) { // right
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(jerryX + 4, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+        if (direction == 2) { // up
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(jerryX + i, jerryY, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+        if (direction == 3) { // down
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(jerryX + i, jerryY + 4, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
     }
     return false;
 }
+bool tomCollisionDetection(int direction) { 
+    // direction => left == 0, right == 1, up == 2, down == 3
 
-void collisionDetection() {
-
+    for (int k = 0; k < numOfWalls; k++) {
+        if (direction == 0) { // left
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(jerryX, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+        if (direction == 1) { // right
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(jerryX + 4, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+        if (direction == 2) { // up
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(jerryX + i, jerryY, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+        if (direction == 3) { // down
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(jerryX + i, jerryY + 4, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
+//****************************************************//
+//****************************************************//
+
 // 4
 void process() {
-    bool right = true, left = true, up = true, down = true;
+    // bool right = true, left = true, up = true, down = true;
     while (1) {
         if (BIT_IS_SET(PINB , 1) && jerryX > 0) { // x-- 
-            if (!jerryCollisionDetection()) {
+            if (!jerryCollisionDetection(0)) {
                 jerryX--;
-                right = true;
-            } else if (right == false) {
-                jerryX--;
-                right = true;
             }
-            else {
-                left = false;
-            }
-            
         }
-        if (BIT_IS_SET(PIND , 0) && jerryX < LCD_X - 8) { // x++ 
-            if (!jerryCollisionDetection()) {
+        if (BIT_IS_SET(PIND , 0) && jerryX < LCD_X - 5) { // x++ 
+            if (!jerryCollisionDetection(1)) {
                 jerryX++;
-                left = true;
-            } else if (left == false) {
-                jerryX++;
-                left = true;
-            }
-            else {
-                right = false;
             }
         }
         if (BIT_IS_SET(PIND , 1) && jerryY > 9){ // y--
-            if (!jerryCollisionDetection()) {
+            if (!jerryCollisionDetection(2)) {
                 jerryY--;
-                down = true;
-            } else if (down == false) {
-                jerryY--;
-                down = true;
-            }
-            else {
-                up = false;
             }
         }
-        if (BIT_IS_SET(PINB , 7) && jerryY < LCD_Y - 8 ) { // y++
-            if (!jerryCollisionDetection()) {
+        if (BIT_IS_SET(PINB , 7) && jerryY < LCD_Y - 5 ) { // y++
+            if (!jerryCollisionDetection(3)) {
                 jerryY++;
-                up = true;
-            } else if (up == false) {
-                jerryX++;
-                up = true;
-            }
-            else {
-                down = false;
             }
         }
         process_helper_drawing();
@@ -338,4 +317,4 @@ int main(void) {
 	}
 
 	return 0;
-}
+} 
