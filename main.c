@@ -212,84 +212,50 @@ double PointLinesOnLine(int x, int y, int x1, int y1, int x2, int y2, double all
     return abs(dist3 - (dist1 + dist2)) <= allowedDistanceDifference;
 }
 
+bool characterWallCollision(int direction, int x, int y) {
+    // direction => left == 0, right == 1, up == 2, down == 3
+    for (int k = 0; k < numOfWalls; k++) {
+        if (direction == 0) { // left
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(x, y + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+        if (direction == 1) { // right
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(x + 4, y + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+        if (direction == 2) { // up
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(x + i, y, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+        if (direction == 3) { // down
+            for (int i = 0; i < 5; i++) {
+                if (PointLinesOnLine(x + i, y + 4, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
 
-bool jerryCollisionDetection(int direction) { 
-    // direction => left == 0, right == 1, up == 2, down == 3
-    for (int k = 0; k < numOfWalls; k++) {
-        if (direction == 0) { // left
-            for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(jerryX, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
-                    return true;
-                }
-            }
-        }
-        if (direction == 1) { // right
-            for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(jerryX + 4, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
-                    return true;
-                }
-            }
-        }
-        if (direction == 2) { // up
-            for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(jerryX + i, jerryY, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
-                    return true;
-                }
-            }
-        }
-        if (direction == 3) { // down
-            for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(jerryX + i, jerryY + 4, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
-bool tomCollisionDetection(int direction) { 
-    // direction => left == 0, right == 1, up == 2, down == 3
-    for (int k = 0; k < numOfWalls; k++) {
-        if (direction == 0) { // left
-            for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(tomX, tomY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
-                    return true;
-                }
-            }
-        }
-        if (direction == 1) { // right
-            for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(tomX + 4, tomY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
-                    return true;
-                }
-            }
-        }
-        if (direction == 2) { // up
-            for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(tomX + i, tomY, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
-                    return true;
-                }
-            }
-        }
-        if (direction == 3) { // down
-            for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(tomX + i, tomY + 4, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
 //****************************************************//
-//****************************************************//
+//****************************************************// 
 
 void moveTom() {
     // sideDirection => left == 0, right == 1, up == 2, down == 3
     if (tomTimerCounter%tomSpeedPrescaler == (tomSpeedPrescaler-1)) {
         
         if (tomeSideDirection == 0) { // left
-            if (!tomCollisionDetection(0) && tomX > 0) {
+            if (!characterWallCollision(0, tomX, tomY) && tomX > 0) {
                 tomX--;
             }
             else {
@@ -297,7 +263,7 @@ void moveTom() {
                 tomSpeedPrescaler = (rand() % 5) + 2;
             }
         } else if (tomeSideDirection == 1) { // right
-            if (!tomCollisionDetection(1) && tomX < LCD_X - 5) {
+            if (!characterWallCollision(1, tomX, tomY) && tomX < LCD_X - 5) {
                 tomX++;
             }
             else {
@@ -308,7 +274,7 @@ void moveTom() {
                 }
             }
         } else if (tomeSideDirection == 2) { // up
-            if (!tomCollisionDetection(2) && tomY > 9 ) {
+            if (!characterWallCollision(2, tomX, tomY) && tomY > 9 ) {
                 tomY--;
             }
             else {
@@ -319,7 +285,7 @@ void moveTom() {
                 }
             }
         } else if (tomeSideDirection == 3) { // down
-            if (!tomCollisionDetection(3) && tomY < LCD_Y - 5) {
+            if (!characterWallCollision(3, tomX, tomY) && tomY < LCD_Y - 5) {
                 tomY++;
             }
             else {
@@ -337,7 +303,7 @@ void didTomCatchJerry() {
         PointLinesOnLine(jerryX, jerryY + 4, tomX, tomY ,tomX + 4 , tomY + 4, 10e-5) == 1 ||
         PointLinesOnLine(jerryX + 4, jerryY, tomX, tomY ,tomX + 4 , tomY + 4, 10e-5) == 1
         ) {
-        gameScore++;
+        jerryLives--;
         jerryX = 0;
         jerryY = 9;
         tomX = LCD_X - 8;
@@ -352,22 +318,22 @@ void process() {
             gamePaused = !gamePaused; // toggle gamePaused
         }
         if (BIT_IS_SET(PINB , 1) && jerryX > 0) { // x-- 
-            if (!jerryCollisionDetection(0)) {
+            if (!characterWallCollision(0, jerryX, jerryY)) {
                 jerryX--;
             }
         }
         if (BIT_IS_SET(PIND , 0) && jerryX < LCD_X - 5) { // x++ 
-            if (!jerryCollisionDetection(1)) {
+            if (!characterWallCollision(1, jerryX, jerryY)) {
                 jerryX++;
             }
         }
         if (BIT_IS_SET(PIND , 1) && jerryY > 9){ // y--
-            if (!jerryCollisionDetection(2)) {
+            if (!characterWallCollision(2, jerryX, jerryY)) {
                 jerryY--;
             }
         }
         if (BIT_IS_SET(PINB , 7) && jerryY < LCD_Y - 5 ) { // y++
-            if (!jerryCollisionDetection(3)) {
+            if (!characterWallCollision(3, jerryX, jerryY)) {
                 jerryY++;
             }
         }
@@ -378,8 +344,8 @@ void process() {
 
 // 1
 int main(void) {
-	setup();
-    welcomePage();
+	setup(); // setup device and input
+    welcomePage(); // show f
     tomeSideDirection = rand() % 4; // Tom first direction
 	for ( ;; ) {
         if (BIT_IS_SET(PINF,5)) {
