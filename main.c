@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <avr/interrupt.h>
 #include <stdbool.h>
-
+#include <time.h>
 #include <stdlib.h>
 #define SQRT(x,y) sqrt(x*x + y*y)
 // screen size 84 X 48  pixels
@@ -42,6 +42,7 @@ int jerryY = 9;
 
 int tomX = LCD_X - 8; // 8 is bitmap size
 int tomY = LCD_Y - 9; // 8 is bitmap size
+int tomeSideDirection;
 
 // joystic
 int joystick_l;
@@ -60,6 +61,11 @@ int clock_minute=0;
 int timerCounter = 0; //counter for the timer
 int timerPrescaler = 40; // speed of the counter
 
+int tomSpeedPrescaler = 5; // speed of Tom counter
+int tomTimerCounter = 0; //counter for Tom timer
+
+bool gamePaused = false;
+
 // walls
 int walls[][4] = {
     {18,15,13,25},
@@ -68,6 +74,9 @@ int walls[][4] = {
     {58,25,72,30}
 }; 
 int numOfWalls = 4;
+
+
+void moveTom();
 
 //****************************************************//
 // Starter functions                                  //
@@ -111,6 +120,8 @@ void setup( void ) {
     lcd_init(LCD_DEFAULT_CONTRAST);
 
     LCD_CMD(lcd_set_display_mode, lcd_display_inverse);
+
+    srand(time(NULL)); 
 }
 
 // 3
@@ -137,22 +148,25 @@ void gameHeaderInformations() {
 
     draw_line(0, 8, LCD_X - 1, 8, FG_COLOUR);
 
+
     // store time to draw on the screen
     char buffer[32];
-
-    //increase seconds every time counter increases by 1
-    if (timerCounter%timerPrescaler == (timerPrescaler-1)){
-        clock_second++;
-    }
-    //once seconds are 59, increase minutes
-    if (clock_second > 59) {
-        clock_second = 0;
-        clock_minute++;
+    if (!gamePaused) {
+        //increase seconds every time counter increases by 1
+        if (timerCounter%timerPrescaler == (timerPrescaler-1)){
+            clock_second++;
+        }
+        //once seconds are 59, increase minutes
+        if (clock_second > 59) {
+            clock_second = 0;
+            clock_minute++;
+        }
+        timerCounter++;
     }
     //fill buffer with characters
     sprintf(buffer, "%2.2d:%2.2d", clock_minute, clock_second);
     draw_string(59,0,buffer,FG_COLOUR);
-    timerCounter++;
+    tomTimerCounter++; // increase Tom timer
 }
 
 // draw 
@@ -172,17 +186,13 @@ void drawWalls() {
     }
 }
 
-// void moveTom() {
-//     int tempX = rand() % 84;
-//     int tempY = (rand() % 38) + 9; 
-// }
 
 void process_helper_drawing() {
     clear_screen();
     drawWalls();
     draw_data(jerryX, jerryY, jerryDirected);
     draw_data(tomX, tomY, tomDirected);
-    //moveTom();
+    moveTom();
     gameHeaderInformations();
     show_screen();
 }
@@ -239,32 +249,31 @@ bool jerryCollisionDetection(int direction) {
 }
 bool tomCollisionDetection(int direction) { 
     // direction => left == 0, right == 1, up == 2, down == 3
-
     for (int k = 0; k < numOfWalls; k++) {
         if (direction == 0) { // left
             for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(jerryX, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                if (PointLinesOnLine(tomX, tomY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
                     return true;
                 }
             }
         }
         if (direction == 1) { // right
             for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(jerryX + 4, jerryY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                if (PointLinesOnLine(tomX + 4, tomY + i, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
                     return true;
                 }
             }
         }
         if (direction == 2) { // up
             for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(jerryX + i, jerryY, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                if (PointLinesOnLine(tomX + i, tomY, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
                     return true;
                 }
             }
         }
         if (direction == 3) { // down
             for (int i = 0; i < 5; i++) {
-                if (PointLinesOnLine(jerryX + i, jerryY + 4, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+                if (PointLinesOnLine(tomX + i, tomY + 4, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
                     return true;
                 }
             }
@@ -275,10 +284,73 @@ bool tomCollisionDetection(int direction) {
 //****************************************************//
 //****************************************************//
 
+void moveTom() {
+    // sideDirection => left == 0, right == 1, up == 2, down == 3
+    if (tomTimerCounter%tomSpeedPrescaler == (tomSpeedPrescaler-1)) {
+        
+        if (tomeSideDirection == 0) { // left
+            if (!tomCollisionDetection(0) && tomX > 0) {
+                tomX--;
+            }
+            else {
+                tomeSideDirection = (rand() % 3) + 1;
+                tomSpeedPrescaler = (rand() % 5) + 2;
+            }
+        } else if (tomeSideDirection == 1) { // right
+            if (!tomCollisionDetection(1) && tomX < LCD_X - 5) {
+                tomX++;
+            }
+            else {
+                tomeSideDirection = (rand() % 3); 
+                tomSpeedPrescaler = (rand() % 2) + 2;
+                if (tomeSideDirection == 1) {
+                    tomeSideDirection = 3;
+                }
+            }
+        } else if (tomeSideDirection == 2) { // up
+            if (!tomCollisionDetection(2) && tomY > 9 ) {
+                tomY--;
+            }
+            else {
+                tomeSideDirection = (rand() % 3) + 1; 
+                tomSpeedPrescaler = (rand() % 5) + 2;
+                if (tomeSideDirection == 2) {
+                    tomeSideDirection = 3;
+                }
+            }
+        } else if (tomeSideDirection == 3) { // down
+            if (!tomCollisionDetection(3) && tomY < LCD_Y - 5) {
+                tomY++;
+            }
+            else {
+                tomeSideDirection = (rand() % 3); 
+                tomSpeedPrescaler = (rand() % 5) + 2;
+            }
+        }
+    }
+    
+}
+
+void didTomCatchJerry() {
+    if (PointLinesOnLine(jerryX, jerryY, tomX, tomY ,tomX + 4 , tomY + 4, 10e-5) == 1 ||
+        PointLinesOnLine(jerryX + 4, jerryY + 4, tomX, tomY ,tomX + 4 , tomY + 4, 10e-5) == 1 ||
+        PointLinesOnLine(jerryX, jerryY + 4, tomX, tomY ,tomX + 4 , tomY + 4, 10e-5) == 1 ||
+        PointLinesOnLine(jerryX + 4, jerryY, tomX, tomY ,tomX + 4 , tomY + 4, 10e-5) == 1
+        ) {
+        gameScore++;
+        jerryX = 0;
+        jerryY = 9;
+        tomX = LCD_X - 8;
+        tomY = LCD_Y - 9;
+    }
+}
 // 4
 void process() {
     // bool right = true, left = true, up = true, down = true;
     while (1) {
+        if (BIT_IS_SET(PINF,5)) { // right button 
+            gamePaused = !gamePaused; // toggle gamePaused
+        }
         if (BIT_IS_SET(PINB , 1) && jerryX > 0) { // x-- 
             if (!jerryCollisionDetection(0)) {
                 jerryX--;
@@ -299,6 +371,7 @@ void process() {
                 jerryY++;
             }
         }
+        didTomCatchJerry();
         process_helper_drawing();
     }
 }
@@ -307,7 +380,7 @@ void process() {
 int main(void) {
 	setup();
     welcomePage();
-
+    tomeSideDirection = rand() % 4; // Tom first direction
 	for ( ;; ) {
         if (BIT_IS_SET(PINF,5)) {
             
