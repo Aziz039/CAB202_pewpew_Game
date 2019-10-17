@@ -43,9 +43,18 @@ uint8_t cheese[5] = {
     0b01111
 };
 
+uint8_t traps[5] = {
+    0b01110,
+    0b10001,
+    0b10001,
+    0b10001,
+    0b01110
+};
+
 uint8_t jerryDirected[5];
 uint8_t tomDirected[5];
 uint8_t cheeseDirected[5];
+uint8_t trapsDirected[5];
 
 int jerryX = 0;
 int jerryY = 9;
@@ -55,6 +64,7 @@ int tomY = LCD_Y - 9; // 8 is bitmap size
 int tomeSideDirection;
 
 int cheeseLocation[5][2];
+int trapsLocation[5][2];
 
 // joystic
 int joystick_l;
@@ -81,6 +91,10 @@ bool gamePaused = false;
 int maxNumOfCheese = 5;
 int numOfCheeseOnGame = 0;
 bool drawCheeseTimer = false;
+
+int maxNumOfTraps = 5;
+int numOfTrapsOnGame = 0;
+bool drawTrapsTimer = false;
 
 // walls
 int walls[][4] = {
@@ -113,6 +127,8 @@ void setup_draw(void) {
             WRITE_BIT(tomDirected[i], j, tom_bit_val);
             uint8_t cheese_bit_val = BIT_VALUE(cheese[j], (4 - i));
             WRITE_BIT(cheeseDirected[i], j, cheese_bit_val);
+            uint8_t traps_bit_val = BIT_VALUE(traps[j], (4 - i));
+            WRITE_BIT(trapsDirected[i], j, traps_bit_val);
         }
     }
 
@@ -241,11 +257,13 @@ bool overlapWithCharacter(int x, int y) {
     return false;
 }
 
-bool checkCheesePosition(int x, int y) {
+bool checkSpawnedPosition(int x, int y) {
     // check if cheese overlapp any other object
-    if (!overlapWithWalls(x, y)) { // check if overlap with wall
-        if (!overlapWithCharacter(x,y)) { // check if overlap with character
-            return true;
+    if (x >= 0 && x < LCD_X - 4 && y > 8 && y < LCD_Y - 4) {
+        if (!overlapWithWalls(x, y)) { // check if overlap with wall
+            //if (!overlapWithCharacter(x,y)) { // check if overlap with character
+                return true;
+            //}
         }
     }
     return false;
@@ -259,7 +277,7 @@ void drawCheese() {
         if (numOfCheeseOnGame < maxNumOfCheese) { // check if number of cheese less than maximum
             int x = rand() % 84; // create random x variable for cheese location
             int y = (rand() % 40) + 8; // create randomm y variable for cheese location
-            if (checkCheesePosition(x, y)) { // check if cheese overlapp any other object
+            if (checkSpawnedPosition(x, y)) { // check if cheese overlapp any other object
                 cheeseLocation[numOfCheeseOnGame][0] = x;
                 cheeseLocation[numOfCheeseOnGame][1] = y;
                 numOfCheeseOnGame++;   
@@ -269,6 +287,41 @@ void drawCheese() {
     }
     for (int i = 0; i < numOfCheeseOnGame; i++) {
         draw_data(cheeseLocation[i][0], cheeseLocation[i][1], cheeseDirected);
+    }
+}
+
+
+void drawTraps() {
+    if ((clock_second + 1) % 3 == 0) {
+        drawTrapsTimer = true;
+    }
+    if (clock_second % 3 == 0 && drawTrapsTimer) {
+        if (numOfTrapsOnGame < maxNumOfTraps) { // check if number of cheese less than maximum
+            int x;
+            int y;
+            if (tomeSideDirection == 0) {
+                x = tomX + 5; 
+                y = tomY; 
+            } else if (tomeSideDirection == 1) {
+                x = tomX - 5; 
+                y = tomY; 
+            } else if (tomeSideDirection == 2) {
+                x = tomX; 
+                y = tomY + 5; 
+            } else {
+                x = tomX; 
+                y = tomY - 5; 
+            }
+            if (checkSpawnedPosition(x, y)) { // check if cheese overlapp any other object
+                trapsLocation[numOfTrapsOnGame][0] = x;
+                trapsLocation[numOfTrapsOnGame][1] = y;
+                numOfTrapsOnGame++;   
+                drawTrapsTimer = false;
+            }
+        }
+    }
+    for (int i = 0; i < numOfTrapsOnGame; i++) {
+        draw_data(trapsLocation[i][0], trapsLocation[i][1], trapsDirected);
     }
 }
 
@@ -286,12 +339,29 @@ void didJerryAteTheCheese() {
         }
     }
 }
+void didJerryTraped() {
+    for (int i = 0; i < numOfTrapsOnGame; i++) {
+        if (PointLinesOnLine(trapsLocation[i][0], trapsLocation[i][1], jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1 ||
+        PointLinesOnLine(trapsLocation[i][0] + 4, trapsLocation[i][1] + 4, jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1 ||
+        PointLinesOnLine(trapsLocation[i][0], trapsLocation[i][1] + 4, jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1 ||
+        PointLinesOnLine(trapsLocation[i][0] + 4, trapsLocation[i][1], jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1
+        ) {
+            trapsLocation[i][0] = trapsLocation[numOfTrapsOnGame - 1][0];
+            trapsLocation[i][1] = trapsLocation[numOfTrapsOnGame - 1][1];
+            numOfTrapsOnGame--;
+            jerryLives--;
+        }
+    }
+}
 
 
 void process_helper_drawing() {
     clear_screen();
     drawWalls();
+    didJerryAteTheCheese();
+    didJerryTraped();
     drawCheese();
+    drawTraps();
     draw_data(jerryX, jerryY, jerryDirected);
     draw_data(tomX, tomY, tomDirected);
     moveTom();
