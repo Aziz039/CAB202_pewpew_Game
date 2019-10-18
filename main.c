@@ -51,10 +51,19 @@ uint8_t traps[5] = {
     0b01110
 };
 
+uint8_t door[5] = {
+    0b11111,
+    0b10001,
+    0b11001,
+    0b10001,
+    0b11111
+};
+
 uint8_t jerryDirected[5];
 uint8_t tomDirected[5];
 uint8_t cheeseDirected[5];
 uint8_t trapsDirected[5];
+uint8_t doorDirected[5];
 
 int jerryX = 0;
 int jerryY = 9;
@@ -65,6 +74,11 @@ int tomeSideDirection;
 
 int cheeseLocation[5][2];
 int trapsLocation[5][2];
+
+int doorX;
+int doorY;
+int winningScore = 5;
+bool doorSpawned = false;
 
 // joystic
 int joystick_l;
@@ -109,7 +123,7 @@ int numOfWalls = 4;
 void moveTom();
 double CalcDistanceBetween2Points(int x1, int y1, int x2, int y2);
 double PointLinesOnLine(int x, int y, int x1, int y1, int x2, int y2, double allowedDistanceDifference);
-
+void openDoor();
 //****************************************************//
 // Starter functions                                  //
 //****************************************************//
@@ -129,6 +143,8 @@ void setup_draw(void) {
             WRITE_BIT(cheeseDirected[i], j, cheese_bit_val);
             uint8_t traps_bit_val = BIT_VALUE(traps[j], (4 - i));
             WRITE_BIT(trapsDirected[i], j, traps_bit_val);
+            uint8_t door_bit_val = BIT_VALUE(door[j], (4 - i));
+            WRITE_BIT(doorDirected[i], j, door_bit_val);
         }
     }
 
@@ -170,8 +186,17 @@ void welcomePage() {
 	draw_string(18, 32, "Adventure", FG_COLOUR );
 	draw_string(10, 40, "SW3 to start", FG_COLOUR );
     show_screen();
-    setup_draw(); // adjust jerry
+    setup_draw(); // adjust characters
 }
+
+void endPage() {
+    clear_screen();
+    draw_string(18, 16, "Game Over!", FG_COLOUR );
+	draw_string(18, 32, "Press SW3", FG_COLOUR );
+	draw_string(10, 40, "to restart..", FG_COLOUR );
+    show_screen();
+}
+
 // Draw the status bar
 void gameHeaderInformations() {
     draw_char(0,0, 'L', FG_COLOUR);
@@ -344,8 +369,7 @@ void didJerryTraped() {
         if (PointLinesOnLine(trapsLocation[i][0], trapsLocation[i][1], jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1 ||
         PointLinesOnLine(trapsLocation[i][0] + 4, trapsLocation[i][1] + 4, jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1 ||
         PointLinesOnLine(trapsLocation[i][0], trapsLocation[i][1] + 4, jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1 ||
-        PointLinesOnLine(trapsLocation[i][0] + 4, trapsLocation[i][1], jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1
-        ) {
+        PointLinesOnLine(trapsLocation[i][0] + 4, trapsLocation[i][1], jerryX, jerryY ,jerryX + 4 , jerryY + 4, 10e-5) == 1) {
             trapsLocation[i][0] = trapsLocation[numOfTrapsOnGame - 1][0];
             trapsLocation[i][1] = trapsLocation[numOfTrapsOnGame - 1][1];
             numOfTrapsOnGame--;
@@ -362,6 +386,7 @@ void process_helper_drawing() {
     didJerryTraped();
     drawCheese();
     drawTraps();
+    openDoor();
     draw_data(jerryX, jerryY, jerryDirected);
     draw_data(tomX, tomY, tomDirected);
     moveTom();
@@ -482,6 +507,64 @@ void didTomCatchJerry() {
         tomY = LCD_Y - 9;
     }
 }
+
+bool didJerryEnterTheDoor() {
+    if (PointLinesOnLine(jerryX, jerryY, doorX, doorY ,doorX + 4 , doorY + 4, 10e-5) == 1 ||
+    PointLinesOnLine(jerryX + 4, jerryY + 4, doorX, doorY ,doorX + 4 , doorY + 4, 10e-5) == 1 ||
+    PointLinesOnLine(jerryX, jerryY + 4, doorX, doorY ,doorX + 4 , doorY + 4, 10e-5) == 1 ||
+    PointLinesOnLine(jerryX + 4, jerryY, doorX, doorY ,doorX + 4 , doorY + 4, 10e-5) == 1
+    ) {
+        return true;
+    }
+    return false;
+}
+void openDoor() {
+    if (gameScore >= winningScore) {
+        if (checkSpawnedPosition(doorX, doorY)) {
+            draw_data(doorX, doorY, doorDirected);
+            doorSpawned = true;
+        } else if (!checkSpawnedPosition(doorX, doorY) && !doorSpawned) {
+            doorX = rand() % (LCD_X - 5);
+            doorY = (rand() % (LCD_Y - 11)) + 8;
+        }
+    }
+    if (didJerryEnterTheDoor() && doorSpawned) {
+        currentLevel++;
+        doorSpawned = false;
+        gameScore = 0;
+    }
+}
+
+void restartGame() {
+    jerryX = 0;
+    jerryY = 9;
+
+    tomX = LCD_X - 8; // 8 is bitmap size
+    tomY = LCD_Y - 9; // 8 is bitmap size
+
+    winningScore = 5;
+    doorSpawned = false;
+
+    // Global variables
+    currentLevel = 1;
+    jerryLives = 5;
+    gameScore = 0;
+
+    clock_second= 0;
+    clock_minute= 0;
+    
+    timerCounter = 0; //counter for the timer
+    tomSpeedPrescaler = 5; // speed of Tom counter
+    tomTimerCounter = 0; //counter for Tom timer
+
+    gamePaused = false;
+    numOfCheeseOnGame = 0;
+    drawCheeseTimer = false;
+
+    numOfTrapsOnGame = 0;
+    drawTrapsTimer = false;
+}
+
 // 4
 void process() {
     // bool right = true, left = true, up = true, down = true;
@@ -509,6 +592,16 @@ void process() {
                 jerryY++;
             }
         }
+        if (jerryLives <= 0) {
+            endPage();
+            while (1) {
+                if (BIT_IS_SET(PINF,5)) { // right button 
+                    restartGame();
+                    break;
+                } 
+            }
+        }
+        // openDoor();
         didTomCatchJerry();
         process_helper_drawing();
     }
@@ -519,6 +612,8 @@ int main(void) {
 	setup(); // setup device and input
     welcomePage(); // show f
     tomeSideDirection = rand() % 4; // Tom first direction
+    doorX = rand() % (LCD_X - 5);
+    doorY = (rand() % (LCD_Y - 11)) + 8;
 	for ( ;; ) {
         if (BIT_IS_SET(PINF,5)) {
             
