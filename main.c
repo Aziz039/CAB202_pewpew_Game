@@ -110,6 +110,10 @@ int maxNumOfTraps = 5;
 int numOfTrapsOnGame = 0;
 bool drawTrapsTimer = false;
 
+int fireworksLocation[20][2];
+int numOfFireworks = 0;
+int maxOfFireworks = 20;
+
 // walls
 int walls[][4] = {
     {18,15,13,25},
@@ -124,6 +128,7 @@ void moveTom();
 double CalcDistanceBetween2Points(int x1, int y1, int x2, int y2);
 double PointLinesOnLine(int x, int y, int x1, int y1, int x2, int y2, double allowedDistanceDifference);
 void openDoor();
+bool checkFireworksPosition(int x,int y);
 //****************************************************//
 // Starter functions                                  //
 //****************************************************//
@@ -378,6 +383,36 @@ void didJerryTraped() {
     }
 }
 
+void drawFireworks() {
+    for (int i = 0; i < numOfFireworks; i++) {
+        if (fireworksLocation[i][0] < tomX) {
+            fireworksLocation[i][0]++;
+        } else if (fireworksLocation[i][0] > tomX) {
+            fireworksLocation[i][0]--;
+        } else {
+            if (fireworksLocation[i][1] < tomY) {
+                fireworksLocation[i][1]++;
+            } else if (fireworksLocation[i][1] > tomY) {
+                fireworksLocation[i][1]--;
+            } else {
+                // fireworks cathced Jerry
+                tomX = LCD_X - 8; // 8 is bitmap size
+                tomY = LCD_Y - 9; // 8 is bitmap size
+                fireworksLocation[i][0] = fireworksLocation[numOfFireworks - 1][0];
+                fireworksLocation[i][1] = fireworksLocation[numOfFireworks - 1][1];
+                numOfFireworks--;
+            }
+        }
+        // check collision with walls
+        if (!checkFireworksPosition(fireworksLocation[i][0], fireworksLocation[i][1])) {
+            draw_pixel(fireworksLocation[i][0], fireworksLocation[i][1], FG_COLOUR);
+        } else {
+            fireworksLocation[i][0] = fireworksLocation[numOfFireworks - 1][0];
+            fireworksLocation[i][1] = fireworksLocation[numOfFireworks - 1][1];
+            numOfFireworks--;
+        }
+    }
+}
 
 void process_helper_drawing() {
     clear_screen();
@@ -386,6 +421,7 @@ void process_helper_drawing() {
     didJerryTraped();
     drawCheese();
     drawTraps();
+    drawFireworks();
     openDoor();
     draw_data(jerryX, jerryY, jerryDirected);
     draw_data(tomX, tomY, tomDirected);
@@ -518,6 +554,7 @@ bool didJerryEnterTheDoor() {
     }
     return false;
 }
+
 void openDoor() {
     if (gameScore >= winningScore) {
         if (checkSpawnedPosition(doorX, doorY)) {
@@ -565,11 +602,48 @@ void restartGame() {
     drawTrapsTimer = false;
 }
 
+// check if fireworks overlap with walls
+bool checkFireworksPosition(int x,int y) {
+    for (int k = 0; k < numOfWalls; k++) {
+        if (PointLinesOnLine(x, y, walls[k][0],walls[k][1],walls[k][2],walls[k][3], 10e-5) == 1) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void jerryShootFireworks() {
+    if (gameScore >= 3) {
+        if (numOfFireworks < maxOfFireworks) {
+            int x, y;
+            if (!checkFireworksPosition(jerryX + 5, jerryY + 2) && jerryX < LCD_X - 2) { // shoot to the right
+                x = jerryX + 5;
+                y = jerryY + 2;
+            } else if (!checkFireworksPosition(jerryX - 1, jerryY + 2) && jerryX > 1) { // shoot to the left
+                x = jerryX - 1;
+                y = jerryY + 2;
+            } else if (!checkFireworksPosition(jerryX + 2, jerryY - 1) && jerryY > 9) { // shoot up
+                x = jerryX + 2;
+                y = jerryY - 1;
+            } else { // shoot down
+                x = jerryX + 2;
+                y = jerryY + 5;
+            }
+            // add firework to array 
+            fireworksLocation[numOfFireworks][0] = x;
+            fireworksLocation[numOfFireworks][1] = y;
+            numOfFireworks++;
+        }
+    }
+}
+
 // 4
 void process() {
     // bool right = true, left = true, up = true, down = true;
     while (1) {
         if (BIT_IS_SET(PINF,5)) { // right button 
+            while(BIT_IS_SET(PINF,5)) {
+            }
             gamePaused = !gamePaused; // toggle gamePaused
         }
         if (BIT_IS_SET(PINB , 1) && jerryX > 0) { // x-- 
@@ -591,6 +665,11 @@ void process() {
             if (!characterWallCollision(3, jerryX, jerryY)) {
                 jerryY++;
             }
+        }
+        if (BIT_IS_SET(PINB, 0)) { // centre
+            while(BIT_IS_SET(PINB,0)) {
+            }
+            jerryShootFireworks();
         }
         if (jerryLives <= 0) {
             endPage();
@@ -616,7 +695,9 @@ int main(void) {
     doorY = (rand() % (LCD_Y - 11)) + 8;
 	for ( ;; ) {
         if (BIT_IS_SET(PINF,5)) {
-            
+            while (BIT_IS_SET(PINF,5)) {
+            }
+            // CLEAR_BIT(PINF,5);
             process();
         }
 		_delay_ms(100);
