@@ -12,6 +12,9 @@
 #include <stdbool.h>
 #include <time.h>
 #include <stdlib.h>
+#include <math.h>
+#include "cab202_adc.h"
+
 #define SQRT(x,y) sqrt(x*x + y*y)
 // screen size 84 X 48  pixels
 
@@ -97,6 +100,9 @@ int clock_minute=0;
 int timerCounter = 0; //counter for the timer
 int timerPrescaler = 40; // speed of the counter
 
+int jerrySpeedPrescaler = 3; // speed of Jerry counter
+int jerryTimerCounter = 0; //counter for Jerry timer
+
 int tomSpeedPrescaler = 5; // speed of Tom counter
 int tomTimerCounter = 0; //counter for Tom timer
 
@@ -122,7 +128,7 @@ int walls[][4] = {
     {58,25,72,30}
 }; 
 int numOfWalls = 4;
-
+double degree = 10;
 
 void moveTom();
 double CalcDistanceBetween2Points(int x1, int y1, int x2, int y2);
@@ -173,10 +179,16 @@ void setup( void ) {
     CLEAR_BIT(DDRF, 6); // left
     CLEAR_BIT(DDRF, 5); // right
 
+    // Enable LEDS 0 and 1
+	SET_BIT(DDRB, 2);
+	SET_BIT(DDRB, 3);
+
 	//	Initialise the LCD display using the default contrast setting.
     lcd_init(LCD_DEFAULT_CONTRAST);
 
     LCD_CMD(lcd_set_display_mode, lcd_display_inverse);
+
+    adc_init();
 
     srand(time(NULL)); 
 }
@@ -233,6 +245,7 @@ void gameHeaderInformations() {
     sprintf(buffer, "%2.2d:%2.2d", clock_minute, clock_second);
     draw_string(59,0,buffer,FG_COLOUR);
     tomTimerCounter++; // increase Tom timer
+    jerryTimerCounter++;
 }
 
 // draw 
@@ -245,9 +258,30 @@ void draw_data(int x, int y, uint8_t *shape) {
         }
     }
 }
-
+bool rotateWall = false;
+int counterForDrawingWalls;
 void drawWalls() {
     for (int i = 0; i < numOfWalls; i++) {
+
+        if ((clock_second + 1) % 2 == 0) {
+            rotateWall = true;
+        }
+        if (clock_second % 2 == 0 && rotateWall) {
+            int x1 = walls[i][0];
+            int y1 = walls[i][1];
+            int x2 = walls[i][2];
+            int y2 = walls[i][3];
+            double r = degree * 0.01745;
+            int xx2 = (int) (x1 + ((x2-x1) * cos(r) - (y2-y1) * sin(r)));
+            int xy2 = (int) (y1 + ((x2-x1) * sin(r) + (y2-y1) * cos(r)));
+            walls[i][2] = xx2;
+            walls[i][3] = xy2;
+            counterForDrawingWalls++;
+            if (counterForDrawingWalls >= numOfWalls) {
+                rotateWall = false;
+                counterForDrawingWalls = 0;
+            }
+        }
         draw_line(walls[i][0],walls[i][1],walls[i][2],walls[i][3], FG_COLOUR);
     }
 }
@@ -414,8 +448,39 @@ void drawFireworks() {
     }
 }
 
+void adc_update(int left_adc, int right_adc) {
+    if (right_adc == 0) {
+        degree = -10;
+    } else if (right_adc == 1) {
+        degree = 0;
+    } else if (right_adc == 2) {
+        degree = 10;
+    } else if (right_adc == 3) {
+        degree = 20;
+    }
+    if (left_adc == 0) {
+        jerrySpeedPrescaler = 4;
+        tomSpeedPrescaler = 7;
+    } else if (left_adc == 1) {
+        jerrySpeedPrescaler = 3;
+        tomSpeedPrescaler = 6;
+    } else if (left_adc == 2) {
+        jerrySpeedPrescaler = 2;
+        tomSpeedPrescaler = 5;
+    } else if (left_adc == 3) {
+        jerrySpeedPrescaler = 1;
+        tomSpeedPrescaler = 4;
+    }
+    
+}
+
 void process_helper_drawing() {
+    //read both potentiometers
+	int left_adc = adc_read(0) / 256; // 1024 / 4 = 256 => {0,1,2,3}
+	int right_adc = adc_read(1) / 256;
     clear_screen();
+    draw_char(10, 20, left_adc + '0', FG_COLOUR);
+    adc_update(left_adc, right_adc);
     drawWalls();
     didJerryAteTheCheese();
     didJerryTraped();
@@ -493,7 +558,7 @@ void moveTom() {
             }
             else {
                 tomeSideDirection = (rand() % 3) + 1;
-                tomSpeedPrescaler = (rand() % 5) + 2;
+                tomSpeedPrescaler = (rand() % 3) + 4;
             }
         } else if (tomeSideDirection == 1) { // right
             if (!characterWallCollision(1, tomX, tomY) && tomX < LCD_X - 5) {
@@ -501,7 +566,7 @@ void moveTom() {
             }
             else {
                 tomeSideDirection = (rand() % 3); 
-                tomSpeedPrescaler = (rand() % 2) + 2;
+                tomSpeedPrescaler = (rand() % 3) + 4;
                 if (tomeSideDirection == 1) {
                     tomeSideDirection = 3;
                 }
@@ -512,7 +577,7 @@ void moveTom() {
             }
             else {
                 tomeSideDirection = (rand() % 3) + 1; 
-                tomSpeedPrescaler = (rand() % 5) + 2;
+                tomSpeedPrescaler = (rand() % 3) + 4;
                 if (tomeSideDirection == 2) {
                     tomeSideDirection = 3;
                 }
@@ -523,7 +588,7 @@ void moveTom() {
             }
             else {
                 tomeSideDirection = (rand() % 3); 
-                tomSpeedPrescaler = (rand() % 5) + 2;
+                tomSpeedPrescaler = (rand() % 3) + 4;
             }
         }
     }
@@ -646,24 +711,26 @@ void process() {
             }
             gamePaused = !gamePaused; // toggle gamePaused
         }
-        if (BIT_IS_SET(PINB , 1) && jerryX > 0) { // x-- 
-            if (!characterWallCollision(0, jerryX, jerryY)) {
-                jerryX--;
+        if (jerryTimerCounter%jerrySpeedPrescaler == (jerrySpeedPrescaler-1)) {
+            if (BIT_IS_SET(PINB , 1) && jerryX > 0) { // x-- 
+                if (!characterWallCollision(0, jerryX, jerryY)) {
+                    jerryX--;
+                }
             }
-        }
-        if (BIT_IS_SET(PIND , 0) && jerryX < LCD_X - 5) { // x++ 
-            if (!characterWallCollision(1, jerryX, jerryY)) {
-                jerryX++;
+            if (BIT_IS_SET(PIND , 0) && jerryX < LCD_X - 5) { // x++ 
+                if (!characterWallCollision(1, jerryX, jerryY)) {
+                    jerryX++;
+                }
             }
-        }
-        if (BIT_IS_SET(PIND , 1) && jerryY > 9){ // y--
-            if (!characterWallCollision(2, jerryX, jerryY)) {
-                jerryY--;
+            if (BIT_IS_SET(PIND , 1) && jerryY > 9){ // y--
+                if (!characterWallCollision(2, jerryX, jerryY)) {
+                    jerryY--;
+                }
             }
-        }
-        if (BIT_IS_SET(PINB , 7) && jerryY < LCD_Y - 5 ) { // y++
-            if (!characterWallCollision(3, jerryX, jerryY)) {
-                jerryY++;
+            if (BIT_IS_SET(PINB , 7) && jerryY < LCD_Y - 5 ) { // y++
+                if (!characterWallCollision(3, jerryX, jerryY)) {
+                    jerryY++;
+                }
             }
         }
         if (BIT_IS_SET(PINB, 0)) { // centre
